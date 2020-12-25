@@ -57,20 +57,15 @@ class wave:
 
         # save sample rate
         self.set('sr', sr)
-
         print('sample rate', sr)
 
-        # get channels, width and alignment
-        ch, sw, al = self.get('ch'), self.get('sw'), self.get('al')
-
-        print('channels', ch)
-        print('sample width', sw)
+        # get alignment
+        al = self.get('al')
         print('alignment', al)
 
         # compute and save new byte rate
         br = sr * al
         self.set('br', br)
-
         print('byte rate', br)
 
         # done
@@ -86,7 +81,6 @@ class wave:
         # compute and save the number of channels
         ch = len(data)
         self.set('ch', ch)
-
         print('channels', ch)
 
         # get width
@@ -94,7 +88,6 @@ class wave:
         # compute and save alignment size
         al = (sw >> 3) * ch
         self.set('al', al)
-
         print('sample width', sw)
         print('alignment', al)
 
@@ -103,7 +96,6 @@ class wave:
         # compute and save byte rate
         br = sr * al
         self.set('br', br)
-
         print('sample rate', sr)
         print('byte rate', br)
 
@@ -111,7 +103,6 @@ class wave:
         l = len(data[0])
         self.set('CS3', l*al)
         self.set('CS1', l*al+36)
-        
         print('data length', l)
         print('data size', l*al)
 
