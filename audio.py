@@ -1,20 +1,15 @@
 #! /usr/bin/python3
-# file audio.py
-# created 20201220
-# author roch schanen
-# comment chmod u+x audio.py
-# source http://soundfile.sapp.org/doc/WaveFormat/
+# file: audio.py
+# created: 20201220
+# author: roch schanen
+# comment: > chmod u+x audio.py
+# comment: > ./audio.py
+# comment: > aplay sound.wav
 
-# todo: create sinusoidal signal and make a two channel wav file (stereo)
-# tofix: asymetry in the signed integer encoding, find an accurate convertion
+# todo: fix asymetry for signed integer encoding, find an accurate convertion
 
-from numpy import linspace
-from numpy import append
 from numpy import empty
-from numpy import array
 from numpy import int16
-from numpy import sin
-from numpy import pi
 
 class wave:
 
@@ -22,10 +17,10 @@ class wave:
 
     meta = {
         'ID1': b'RIFF',                # string ID
-        'CS1': b'\x24\x00\x00\x00',    # chunk size = 36 (no data)
+        'CS1': b'\x24\x00\x00\x00',    # chunk size = 36 (data chunk empty)
         'ID2': b'WAVE',                # string ID 
         'ID3': b'fmt ',                # string ID
-        'CS2': b'\x10\x00\x00\x00',    # chunk size = 16
+        'CS2': b'\x10\x00\x00\x00',    # chunk size = 16 (fixed)
         'af' : b'\x01\x00',            # audio format = 1 (PCM)
         'ch' : b'\x02\x00',            # channels = 2 (stereo)
         'sr' : b'\x00\x00\x00\x00',    # sample rate = 0 (samples per seconds)
@@ -33,7 +28,7 @@ class wave:
         'al' : b'\x04\x00',            # block alignment size = 4 bytes
         'sw' : b'\x10\x00',            # bits per samples = 16 (sample width)
         'ID4': b'data',                # string ID
-        'CS3': b'\x00\x00\x00\x00'}    # chunk size = 0 (no data)
+        'CS3': b'\x00\x00\x00\x00'}    # chunk size = 0 (data chunk empty)
 
     def displayMeta(self):
         # display meta data as a table
@@ -57,28 +52,76 @@ class wave:
         return
 
     def setSampleRate(self, sr):
+
+        print('--- wave.setRate() ---')
+
         # save sample rate
         self.set('sr', sr)
+
+        print('sample rate', sr)
+
         # get channels, width and alignment
         ch, sw, al = self.get('ch'), self.get('sw'), self.get('al')
+
+        print('channels', ch)
+        print('sample width', sw)
+        print('alignment', al)
+
         # compute and save new byte rate
         br = sr * al
         self.set('br', br)
+
+        print('byte rate', br)
+
         # done
         return
 
-    def setdata(self, data):
+    def setData(self, data):
+        
+        print('--- wave.setData() ---')
+
         # coerce data to a list of ndarrays
         if not isinstance(data, list): data = [data]
+
         # compute and save the number of channels
         ch = len(data)
         self.set('ch', ch)
+
+        print('channels', ch)
+
+        # get width
+        sw = self.get('sw')
+        # compute and save alignment size
+        al = (sw >> 3) * ch
+        self.set('al', al)
+
+        print('sample width', sw)
+        print('alignment', al)
+
+        # get sample rate
+        sr = self.get('sr')
+        # compute and save byte rate
+        br = sr * al
+        self.set('br', br)
+
+        print('sample rate', sr)
+        print('byte rate', br)
+
+        # compute and save data length
+        l = len(data[0])
+        self.set('CS3', l*al)
+        self.set('CS1', l*al+36)
+        
+        print('data length', l)
+        print('data size', l*al)
+
         # reserve memory
-        m = empty(ch * len(data[0]), dtype = float)
+        m = empty(l*ch, dtype = float)
         # inter-weave channels
         for i, d in enumerate(data): m[i::ch] = data[i]
-        # convert floating arrays to 16 bits integers coded as little endian bytes
+        # convert floating to signed 16 bits little endian bytes
         self.data = ((32767*m).astype(int16)).tobytes()
+        
         # done
         return
 
@@ -93,33 +136,40 @@ class wave:
         fh.close()
         return
 
+    # def importfile(self, filepath):
+    #     return
+
     # def getSampleRate(self):
     #     return self.get('sr')
 
     # def getData(self):
     #     return data
 
-    # def importfile(self, filepath):
-    #     return
 
 
 if __name__ == "__main__":
 
+    # build two waves and export data in .wav (WAVE) file
+
+    from numpy import linspace
+    from numpy import sin
+    from numpy import pi
+
     f1 = 440.0  # left frequency
-    f2 = 480.0  # right frequency
+    f2 = 440.0  # right frequency
     r  = 44100  # rate (sample/s)
-    d  = 1.0    # duration
+    d  = 0.25    # duration
 
     # compute sound waves
     t = linspace(0.0, d, d*r)
-    # x = [+1.0]*int(r*d) # compute left  channel
-    # y = [-1.0]*int(r*d) # compute right channel
     x = sin(2.0*pi*f1*t) # compute left  channel
     y = sin(2.0*pi*f2*t) # compute right channel
 
     mywave = wave()
-    mywave.setdata([x,y])
+    mywave.setData([x,y])
     mywave.setSampleRate(r)
+
     # mywave.displayMeta()
     # mywave.displayData()
+
     mywave.exportFile('./sound.wav')
