@@ -6,14 +6,23 @@
 # comment: > ./audio.py
 # comment: > aplay sound.wav
 
+# source: https://wavefilegem.com/how_wave_files_work.html
+
 # valid formats (so far):
-# RIFF-WAVE integers (PCM)
-# RIFF-WAVE float
+# RIFF-WAVE-  PCM  integer data 8-16-32 bits
+# RIFF-WAVE- "PCM" floating point data 32-64 bits
 
 # todo: fix asymetry for signed integer encoding, find an accurate convertion
 
 from numpy import empty
+from numpy import ndarray
+from numpy import uint8
 from numpy import int16
+from numpy import int32
+from numpy import int64
+from numpy import float32
+from numpy import float64
+from numpy import frombuffer
 
 __UPPER__ = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 __LOWER__ = b"abcdefghijklmnopqrstuvwxyz"
@@ -40,7 +49,7 @@ class wave:
         'af' : b'\x01\x00',            # audio format = 1 (PCM)
         'ch' : b'\x02\x00',            # channels = 2 (stereo)
         'sr' : b'\x00\x00\x00\x00',    # sample rate = 0 (samples per seconds)
-        'br' : b'\x00\x00\x00\x00',    # byte rate = 0(bytes per seconds)
+        'br' : b'\x00\x00\x00\x00',    # byte rate = 0 (bytes per seconds)
         'al' : b'\x04\x00',            # block alignment size = 4 bytes
         'sw' : b'\x10\x00',            # bits per samples = 16 (sample width)
         'ID4': b'data',                # string ID
@@ -62,14 +71,27 @@ class wave:
         # done
         return
 
-    def get(self, name):
-        # convert bytes string to integer value
-        value = int.from_bytes(self.meta[name], 'little')
+    def get(self, *args):
+        """ The function get() returns a list of values from the header. The
+        list to return is determined by the *args parameter list. Each element
+        of the parameter list is a string defining the name of the value to
+        return. If the parameters list contains only a single element. The
+        function doesn't return a list but a single value. For example:
+        - X = self.get('x') returns the value of 'x'
+        - X, Y = self.get('x', 'y') returns the values of both 'x' and 'y'
+        """
+        values = []
+        for name in args:
+            # convert byte string to integer value
+            values.append(int.from_bytes(self.meta[name], 'little'))
+        # check for single name
+        if len(values) == 1:
+            return values[0]
         # done
-        return  value
+        return  values
 
     def set(self, name, value):
-        # preserve length of bytes string
+        # preserve string length
         l = len(self.meta[name])
         # set bytes string value
         self.meta[name] = value.to_bytes(l, 'little')
@@ -96,15 +118,19 @@ class wave:
         # done
         return
 
-    def setData(self, data):
+    def setData(self, ndal):
+        """ convert ndarrays into binary data
+        ndal is either a single ndarray or a list of ndarrays
+        ...                                                                 !!!
+        """
         
         print('--- wave.setData() ---')
 
         # coerce data to a list of ndarrays
-        if not isinstance(data, list): data = [data]
+        if isinstance(ndal, ndarray): ndal = [ndal]
 
         # compute and save the number of channels
-        ch = len(data)
+        ch = len(ndal)
         self.set('ch', ch)
         print('channels', ch)
 
@@ -125,7 +151,7 @@ class wave:
         print('byte rate', br)
 
         # compute and save data length
-        l = len(data[0])
+        l = len(ndal[0])
         self.set('CS3', l*al)
         self.set('CS1', l*al+36)
         print('data length', l)
@@ -133,8 +159,11 @@ class wave:
 
         # reserve memory
         m = empty(l*ch, dtype = float)
+
         # inter-weave channels
-        for i, d in enumerate(data): m[i::ch] = data[i]
+        for i, d in enumerate(ndal):
+            m[i::ch] = ndal[i]
+
         # convert floating to signed 16 bits little endian bytes
         self.data = ((32767*m).astype(int16)).tobytes()
         
@@ -233,17 +262,59 @@ class wave:
         return
 
     def getData(self):
-
-
-
+        # define type convertion table
+        typeTable = {
+            (1, 8)  : uint8,
+            (1, 16) : int16,
+            (1, 32) : int32,
+            (3, 32) : float32,
+            (3, 64) : float64,
+        }
+        # get data format from header
+        af, sw, ch = self.get('af', 'sw', 'ch')
+        dataType = typeTable[(af, sw)]
+        # get ndarray from binary data
+        nda = frombuffer(self.data, dataType)
+        # unweave data channels
+        data = []
+        for i in range(ch):
+            data.append(nda[i::ch])
+        # done
         return data
-
-    # def getSampleRate(self):
-    #     return self.get('sr')
 
 if __name__ == "__main__":
 
-    __DEVSTEP__ = 2
+    __DEVSTEP__ = 3
+
+    # ------------------
+    if __DEVSTEP__ == 3:
+
+        # load float 32 bits wav file
+        # convert
+        # save integer 16 bits wav file
+        mywave = wave()
+        mywave.importFile('./violin.wav')
+        # mywave.displayMeta()
+        X, Y = mywave.getData()
+        # print(min(X), max(X))
+        # print(min(Y), max(Y))
+        mywave.set('af', 1)
+        mywave.set('sw', 16)
+        mywave.setData([X, Y])
+        mywave.exportFile('./soundcopy.wav')
+
+    # ------------------
+    if __DEVSTEP__ == 2:
+
+        # import, export test
+        print()
+        mywave = wave()
+        print()
+        mywave.importFile('./sound.wav')
+        print()
+        mywave.displayMeta()
+        print()
+        mywave.exportFile('./soundcopy.wav')
 
     # ------------------
     if __DEVSTEP__ == 1:
@@ -272,16 +343,3 @@ if __name__ == "__main__":
         # mywave.displayData()
 
         mywave.exportFile('./sound.wav')
-
-    # ------------------
-    if __DEVSTEP__ == 2:
-
-        # import, export test
-        print()
-        mywave = wave()
-        print()
-        mywave.importFile('./sound.wav')
-        print()
-        mywave.displayMeta()
-        print()
-        mywave.exportFile('./soundcopy.wav')
