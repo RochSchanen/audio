@@ -12,28 +12,27 @@
 # RIFF-WAVE-  PCM  integer data 8-16-32 bits
 # RIFF-WAVE- "PCM" floating point data 32-64 bits
 
-# todo: fix asymetry for signed integer encoding, find an accurate convertion
+__DEBUG__ = True
 
 from numpy import empty
 from numpy import ndarray
+
+# from numpy import iinfo
+# from numpy import finfo
+
 from numpy import uint8
 from numpy import int16
 from numpy import int32
 from numpy import int64
 from numpy import float32
 from numpy import float64
-from numpy import frombuffer
 
-__UPPER__ = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-__LOWER__ = b"abcdefghijklmnopqrstuvwxyz"
-__NUM__   = b"0123456789"
-__ALPHA__    = __UPPER__+__LOWER__
-__ALPHANUM__ = __ALPHA__+__NUM__
+from numpy import frombuffer
 
 class wave:
 
     def __init__(self):
-        print('instanciate new wave() object')
+        if __DEBUG__: print('instanciate new wave() object')
         return
 
     # wave data default
@@ -55,6 +54,14 @@ class wave:
         'ID4': b'data',                # string ID
         'CS3': b'\x00\x00\x00\x00'}    # chunk size = 0 (data chunk empty)
 
+    # todo: improve display techniques
+
+    _UPPER = b"ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    _LOWER = b"abcdefghijklmnopqrstuvwxyz"
+    _NUM   = b"0123456789"
+    _ALPHA    = _UPPER+_LOWER
+    _ALPHANUM = _ALPHA+_NUM
+
     def displayMeta(self):
         # display meta data as a table
         for n, v in zip(self.meta.keys(), self.meta.values()):
@@ -65,7 +72,7 @@ class wave:
                 s += 8*' '
             s += f" 'b'"
             for m in v:
-                if m in __ALPHANUM__:
+                if m in _ALPHANUM:
                     s += f"{m:c}"
             print(f"{s}'")
         # done
@@ -91,6 +98,11 @@ class wave:
         return  values
 
     def set(self, name, value):
+        """ The function set() assert a value to one of the header parameters.
+        The parameters to update is defined by the "name" argument. it is a
+        string that contains the name of the parameter. For example:
+        - self.set('x', X) updates the header parameter 'x' with the value X.
+        """
         # preserve string length
         l = len(self.meta[name])
         # set bytes string value
@@ -99,76 +111,117 @@ class wave:
         return
 
     def setSampleRate(self, sr):
-
-        print('--- wave.setRate() ---')
-
+        if __DEBUG__: print('--- wave.setRate() ---')
         # save sample rate
         self.set('sr', sr)
-        print('sample rate', sr)
-
+        if __DEBUG__: print('sample rate', sr)
         # get alignment
         al = self.get('al')
-        print('alignment', al)
-
+        if __DEBUG__: print('alignment', al)
         # compute and save new byte rate
         br = sr * al
         self.set('br', br)
-        print('byte rate', br)
-
+        if __DEBUG__: print('byte rate', br)
         # done
         return
+
+    # info table for binary to array conversions
+    infoTable = {
+        (1,  8) : (0.0, 255.0, uint8),
+        (1, 16) : (-32768.0, +32767.0, int16),
+        (1, 32) : (-2147483648.0, 2147483647.0, int32),
+        (3, 32) : (-1.0, +1.0, float32),
+        (3, 64) : (-1.0, +1.0, float64),
+    }
+
+    def toBinary(self, floatArray):
+        # get data format from header
+        af, sw = self.get('af', 'sw')
+        # get conversion parameters
+        l, h, t = self.infoTable[(af, sw)]
+        # compute conversion coefficient
+        ofst, span = (h+l)/2.0, (h-l)/2.0
+        # scale array
+        scaled = span*floatArray+ofst
+        # convert array
+        converted = scaled.astype(t)
+        # flatten array to bytes
+        flattened = converted.tobytes()
+        return flattened
+
+    def fromBinary(self, binaryString):
+        # get data format from header
+        af, cw = self.get('af', 'cw')
+        # get conversion parameters
+        l, h, t = self.infoTable[(af, sw)]
+        # compute conversion coefficient
+        ofst, span = (h+l)/(h-l), 2.0/(h-l)
+
+
+        return floatArray
 
     def setData(self, ndal):
         """ convert ndarrays into binary data
         ndal is either a single ndarray or a list of ndarrays
         ...                                                                 !!!
         """
-        
-        print('--- wave.setData() ---')
-
-        # coerce data to a list of ndarrays
+        if __DEBUG__: print('--- wave.setData() ---')
+        # coerce ndal to a list of ndarrays
         if isinstance(ndal, ndarray): ndal = [ndal]
-
         # compute and save the number of channels
         ch = len(ndal)
         self.set('ch', ch)
-        print('channels', ch)
-
+        if __DEBUG__: print('channels', ch)
         # get width
         sw = self.get('sw')
         # compute and save alignment size
         al = (sw >> 3) * ch
         self.set('al', al)
-        print('sample width', sw)
-        print('alignment', al)
-
+        if __DEBUG__: print('sample width', sw)
+        if __DEBUG__: print('alignment', al)
         # get sample rate
         sr = self.get('sr')
         # compute and save byte rate
         br = sr * al
         self.set('br', br)
-        print('sample rate', sr)
-        print('byte rate', br)
-
+        if __DEBUG__: print('sample rate', sr)
+        if __DEBUG__: print('byte rate', br)
         # compute and save data length
         l = len(ndal[0])
         self.set('CS3', l*al)
         self.set('CS1', l*al+36)
-        print('data length', l)
-        print('data size', l*al)
-
+        if __DEBUG__: print('data length', l)
+        if __DEBUG__: print('data size', l*al)
         # reserve memory
         m = empty(l*ch, dtype = float)
-
         # inter-weave channels
         for i, d in enumerate(ndal):
             m[i::ch] = ndal[i]
-
-        # convert floating to signed 16 bits little endian bytes
-        self.data = ((32767*m).astype(int16)).tobytes()
-        
+        # convert
+        self.data = self.toBinary(m)
         # done
         return
+
+    def getData(self):
+        # define type convertion table
+        typeTable = {
+            (1,  8) : uint8,
+            (1, 16) : int16,
+            (1, 32) : int32,
+            (3, 32) : float32,
+            (3, 64) : float64,
+        }
+        # get data format from header
+        af, sw, ch = self.get('af', 'sw', 'ch')
+        dataType = typeTable[(af, sw)]
+        # get ndarray from binary data
+        nda = frombuffer(self.data, dataType)
+        # unweave data channels
+        data = []
+        for i in range(ch):
+            data.append((nda[i::ch]).astype(float64))
+        # done
+        return data
 
     def displayData(self):
         print(self.data)
@@ -185,7 +238,6 @@ class wave:
     def importFile(self, filepath):
         fh = open(filepath, 'rb')
         meta = fh.read(44)
-        
         # ID1, CS1, ID2 
         err = False
         if not meta[0:4]  == b'RIFF': err = True
@@ -195,7 +247,6 @@ class wave:
             print('exiting...')
             exit()
         self.meta['CS1'] = meta[4:8]
-
         # ID3, CS2
         err = False
         if not meta[12:16] == b'fmt ': err = True
@@ -204,7 +255,6 @@ class wave:
             print('exiting...')
             exit()
         self.meta['CS2'] = meta[16:20]
-        
         # check header length
         err = False
         if not self.get('CS2') == 16: err =True
@@ -212,7 +262,6 @@ class wave:
             print('expected fmt header length of 16 bytes')
             print('exiting...')
             exit()
-
         # af
         err = True
         # WAVE_FORMAT_PCM
@@ -225,21 +274,19 @@ class wave:
             print('exiting...')
             exit()
         self.meta['af']  = meta[20:22]
-
         # ch, sr, br, al, sw
         self.meta['ch']  = meta[22:24]
         self.meta['sr']  = meta[24:28]
         self.meta['br']  = meta[28:32]
         self.meta['al']  = meta[32:34]
         self.meta['sw']  = meta[34:36]
-
         # display
-        print(f'channels \t= {self.get("ch")}')
-        print(f'sample rate \t= {self.get("sr")}S/s')
-        print(f'data width \t= {self.get("sw")}bits')
-        if self.get('af') == 1: print('data type \t= integer')
-        if self.get('af') == 3: print('data type \t= float')
-
+        if __DEBUG__: print(f'channels \t= {self.get("ch")}')
+        if __DEBUG__: print(f'sample rate \t= {self.get("sr")}S/s')
+        if __DEBUG__: print(f'data width \t= {self.get("sw")}bits')
+        if __DEBUG__: 
+            if self.get('af') == 1: print('data type \t= integer')
+            if self.get('af') == 3: print('data type \t= float')
         # ID4
         err = False
         if not meta[36:40] == b'data': err = True
@@ -248,43 +295,41 @@ class wave:
             print('exiting...')
             exit()
         self.meta['CS3'] = meta[40:44]
-
         # display
         samples = self.get('CS3') / self.get('al')
-        print(f"samples \t= {samples:.0f}")
-        print(f"duration \t= {samples/self.get('sr'):.3f}s")
-
-        # data
+        if __DEBUG__: print(f"samples \t= {samples:.0f}")
+        if __DEBUG__: print(f"duration \t= {samples/self.get('sr'):.3f}s")
+        # load data from file
         self.data = fh.read(self.get('CS3'))
-
-        # done
+        # close file
         fh.close()
-        return
-
-    def getData(self):
-        # define type convertion table
-        typeTable = {
-            (1, 8)  : uint8,
-            (1, 16) : int16,
-            (1, 32) : int32,
-            (3, 32) : float32,
-            (3, 64) : float64,
-        }
-        # get data format from header
-        af, sw, ch = self.get('af', 'sw', 'ch')
-        dataType = typeTable[(af, sw)]
-        # get ndarray from binary data
-        nda = frombuffer(self.data, dataType)
-        # unweave data channels
-        data = []
-        for i in range(ch):
-            data.append(nda[i::ch])
         # done
-        return data
+        return
 
 if __name__ == "__main__":
 
-    __DEVSTEP__ = 3
+    __DEVSTEP__ = 4
+
+
+    # ------------------
+    if __DEVSTEP__ == 4:
+
+        # load float 32 bits wav file
+        # convert
+        # save integer 16 bits wav file
+        mywave = wave()
+        mywave.importFile('./violin.wav')
+
+        mywave.displayMeta()
+
+        X, Y = mywave.getData()
+        mywave.set('af', 1)
+        mywave.set('sw', 16)
+        mywave.setData([X, Y])
+
+        mywave.displayMeta()
+
+        # mywave.exportFile('./soundcopy.wav')
 
     # ------------------
     if __DEVSTEP__ == 3:
