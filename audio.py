@@ -72,7 +72,7 @@ class wave:
                 s += 8*' '
             s += f" 'b'"
             for m in v:
-                if m in _ALPHANUM:
+                if m in self._ALPHANUM:
                     s += f"{m:c}"
             print(f"{s}'")
         # done
@@ -147,17 +147,23 @@ class wave:
         converted = scaled.astype(t)
         # flatten array to bytes
         flattened = converted.tobytes()
+        # done
         return flattened
 
     def fromBinary(self, binaryString):
         # get data format from header
-        af, cw = self.get('af', 'cw')
+        af, sw = self.get('af', 'sw')
         # get conversion parameters
         l, h, t = self.infoTable[(af, sw)]
-        # compute conversion coefficient
+        # bytes to typed array
+        converted = frombuffer(binaryString, t)
+        # typed array to scaled float array
+        scaled = converted.astype(float)
+        # compute inverse conversion coefficient
         ofst, span = (h+l)/(h-l), 2.0/(h-l)
-
-
+        # convert to normalised float array
+        floatArray = span*scaled+ofst
+        # done
         return floatArray
 
     def setData(self, ndal):
@@ -203,25 +209,16 @@ class wave:
         return
 
     def getData(self):
-        # define type convertion table
-        typeTable = {
-            (1,  8) : uint8,
-            (1, 16) : int16,
-            (1, 32) : int32,
-            (3, 32) : float32,
-            (3, 64) : float64,
-        }
-        # get data format from header
-        af, sw, ch = self.get('af', 'sw', 'ch')
-        dataType = typeTable[(af, sw)]
-        # get ndarray from binary data
-        nda = frombuffer(self.data, dataType)
+        # convert
+        nda = self.fromBinary(self.data)
+        # get number of channels
+        ch = self.get('ch')
         # unweave data channels
-        data = []
+        ndal = []
         for i in range(ch):
-            data.append((nda[i::ch]).astype(float64))
+            ndal.append(nda[i::ch])
         # done
-        return data
+        return ndal
 
     def displayData(self):
         print(self.data)
@@ -310,7 +307,6 @@ if __name__ == "__main__":
 
     __DEVSTEP__ = 4
 
-
     # ------------------
     if __DEVSTEP__ == 4:
 
@@ -318,7 +314,7 @@ if __name__ == "__main__":
         # convert
         # save integer 16 bits wav file
         mywave = wave()
-        mywave.importFile('./violin.wav')
+        mywave.importFile('./soundcopy.wav')
 
         mywave.displayMeta()
 
@@ -329,24 +325,34 @@ if __name__ == "__main__":
 
         mywave.displayMeta()
 
-        # mywave.exportFile('./soundcopy.wav')
+        mywave.exportFile('./soundcopy2.wav')
+
+        # > aplay soundcopy.wav
+        # > aplay soundcopy2.wav
+        # should show the correct parameters
+        # should sound exactly the same
 
     # ------------------
     if __DEVSTEP__ == 3:
 
-        # load float 32 bits wav file
+        # load integer 16 bits wav file
         # convert
-        # save integer 16 bits wav file
+        # save float 32 bits wav file
         mywave = wave()
-        mywave.importFile('./violin.wav')
+        mywave.importFile('./sound.wav')
         # mywave.displayMeta()
         X, Y = mywave.getData()
         # print(min(X), max(X))
         # print(min(Y), max(Y))
-        mywave.set('af', 1)
-        mywave.set('sw', 16)
+        mywave.set('af', 3)
+        mywave.set('sw', 32)
         mywave.setData([X, Y])
         mywave.exportFile('./soundcopy.wav')
+
+        # > aplay soundcopy.wav
+        # > aplay sound.wav
+        # should show the correct parameters
+        # should sound exactly the same
 
     # ------------------
     if __DEVSTEP__ == 2:
@@ -361,6 +367,11 @@ if __name__ == "__main__":
         print()
         mywave.exportFile('./soundcopy.wav')
 
+        # > aplay soundcopy.wav
+        # > aplay sound.wav
+        # should show the correct parameters
+        # should sound exactly the same
+
     # ------------------
     if __DEVSTEP__ == 1:
 
@@ -373,10 +384,10 @@ if __name__ == "__main__":
         f1 = 440.0  # left frequency
         f2 = 440.0  # right frequency
         r  = 44100  # rate (sample/s)
-        d  = 0.50   # duration
+        d  = 1.0    # duration
 
         # compute sound waves
-        t = linspace(0.0, d, d*r)
+        t = linspace(0.0, d, int(d*r))
         x = sin(2.0*pi*f1*t) # compute left  channel
         y = sin(2.0*pi*f2*t) # compute right channel
 
@@ -388,3 +399,8 @@ if __name__ == "__main__":
         # mywave.displayData()
 
         mywave.exportFile('./sound.wav')
+
+        # > aplay sound.wav
+        # should show the correct parameters
+        # should sound like a pure 'A' note
+
