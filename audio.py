@@ -29,6 +29,11 @@ from numpy import float64
 
 from numpy import frombuffer
 
+# to do: automate some convertion
+#      : keep data in float format
+#      : at the moment we need getData/setData()
+#      : to update format changes.
+
 class wave:
 
     def __init__(self):
@@ -305,102 +310,5 @@ class wave:
 
 if __name__ == "__main__":
 
-    __DEVSTEP__ = 4
-
-    # ------------------
-    if __DEVSTEP__ == 4:
-
-        # load float 32 bits wav file
-        # convert
-        # save integer 16 bits wav file
-        mywave = wave()
-        mywave.importFile('./soundcopy.wav')
-
-        mywave.displayMeta()
-
-        X, Y = mywave.getData()
-        mywave.set('af', 1)
-        mywave.set('sw', 16)
-        mywave.setData([X, Y])
-
-        mywave.displayMeta()
-
-        mywave.exportFile('./soundcopy2.wav')
-
-        # > aplay soundcopy.wav
-        # > aplay soundcopy2.wav
-        # should show the correct parameters
-        # should sound exactly the same
-
-    # ------------------
-    if __DEVSTEP__ == 3:
-
-        # load integer 16 bits wav file
-        # convert
-        # save float 32 bits wav file
-        mywave = wave()
-        mywave.importFile('./sound.wav')
-        # mywave.displayMeta()
-        X, Y = mywave.getData()
-        # print(min(X), max(X))
-        # print(min(Y), max(Y))
-        mywave.set('af', 3)
-        mywave.set('sw', 32)
-        mywave.setData([X, Y])
-        mywave.exportFile('./soundcopy.wav')
-
-        # > aplay soundcopy.wav
-        # > aplay sound.wav
-        # should show the correct parameters
-        # should sound exactly the same
-
-    # ------------------
-    if __DEVSTEP__ == 2:
-
-        # import, export test
-        print()
-        mywave = wave()
-        print()
-        mywave.importFile('./sound.wav')
-        print()
-        mywave.displayMeta()
-        print()
-        mywave.exportFile('./soundcopy.wav')
-
-        # > aplay soundcopy.wav
-        # > aplay sound.wav
-        # should show the correct parameters
-        # should sound exactly the same
-
-    # ------------------
-    if __DEVSTEP__ == 1:
-
-        # build two waves and export data in .wav (WAVE) file
-
-        from numpy import linspace
-        from numpy import sin
-        from numpy import pi
-
-        f1 = 440.0  # left frequency
-        f2 = 440.0  # right frequency
-        r  = 44100  # rate (sample/s)
-        d  = 1.0    # duration
-
-        # compute sound waves
-        t = linspace(0.0, d, int(d*r))
-        x = sin(2.0*pi*f1*t) # compute left  channel
-        y = sin(2.0*pi*f2*t) # compute right channel
-
-        mywave = wave()
-        mywave.setData([x,y])
-        mywave.setSampleRate(r)
-
-        # mywave.displayMeta()
-        # mywave.displayData()
-
-        mywave.exportFile('./sound.wav')
-
-        # > aplay sound.wav
-        # should show the correct parameters
-        # should sound like a pure 'A' note
-
+    print('audio.py version 0.00')
+    print('- import/export .wav file working')
