@@ -1,0 +1,18 @@
+
+
+define parameters that can evolve in time
+
+
+0.000 channel 1, start, note A, type harmonic, volume 100.0, phase 0.0
+0.000 channel 2, start, note A, type harmonic, volume 100.0, phase 0.0
+0.100 channel 1, change phase 10.0
+0.200 channel 1, change phase 20.0
+0.300 channel 1, change phase 30.0
+0.400 channel 1, change phase 40.0
+0.500 channel 1, change phase 50.0
+0.600 channel 1, change phase 60.0
+0.700 channel 1, change phase 70.0
+0.800 channel 1, change phase 80.0
+0.900 channel 1, change phase 90.0
+1.000 channel 1, stop
+1.000 channel 2, stop

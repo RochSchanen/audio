@@ -54,20 +54,14 @@ if __name__ == "__main__":
         # compute wave parts
 
         for part in [
-                [440.0, 0.0, 440.0, 1.0],
-                # [440.0, 1.0, 450.0, 1.0],
-                # [440.0, 1.0, 460.0, 1.0],
-                # [440.0, 1.0, 470.0, 1.0],
-                # [440.0, 1.0, 470.0, 1.00],
-                # [440.0, 1.0, 470.0, 0.50],
-                # [440.0, 1.0, 470.0, 0.25],
-                # [440.0, 1.0, 470.0, 0.00],
+                [440.0, 1.0, 0.0*pi, 440.0, 1.0, 0.0*pi],
+                [440.0, 1.0, 0.0*pi, 440.0, 1.0, 0.0*pi],
             ]:
 
-            fR, aR, fL, aL = part       
+            fR, aR, pR, fL, aL, pL = part       
 
-            R = append(R, aR*sin(2.0*pi*fR*t)) # left  channel
-            L = append(L, aL*sin(2.0*pi*fL*t)) # right channel
+            R = append(R, aR*sin(2.0*pi*fR*t+pR)) # left  channel
+            L = append(L, aL*sin(2.0*pi*fL*t+pL)) # right channel
 
         mywave = wave()
 
